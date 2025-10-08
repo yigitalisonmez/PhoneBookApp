@@ -9,21 +9,54 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.phonebookapp.presentation.ui.common.IosTextField
+import com.example.phonebookapp.presentation.ui.common.LocalScreenDimensions
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import java.io.ByteArrayOutputStream
+import android.graphics.BitmapFactory
+import android.net.Uri
+import com.example.phonebookapp.presentation.ui.common.IosPhoneTextField
+import kotlinx.coroutines.launch
+import android.util.Log
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
+import android.content.Intent
+import android.provider.MediaStore
+import androidx.core.content.FileProvider
+import androidx.palette.graphics.Palette
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import coil.ImageLoader
+import coil.request.SuccessResult
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import android.graphics.BlurMaskFilter
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.toArgb
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,191 +65,643 @@ fun ProfileBottomSheet(
     onDismiss: () -> Unit,
     onEdit: (String) -> Unit,
     onRequestDelete: (String) -> Unit,
+    onContactUpdated: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val state = viewModel.state.value
+    val context = LocalContext.current
+    val screenWidth = LocalScreenDimensions.current.width
+
+    // Dominant renk için state
+    var dominantColor by remember { mutableStateOf(Color(0xFFF8BBD0)) } // Default pembe
 
     LaunchedEffect(contactId) { viewModel.initialize(contactId) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    LaunchedEffect(Unit) { sheetState.expand() }
-
-    var showEdit by remember { mutableStateOf(false) }
-    var showActionSheet by remember { mutableStateOf(false) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss, 
-        sheetState = sheetState,
-        containerColor = Color.White
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.95f)
-                .background(Color.White)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { showActionSheet = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Profile Avatar
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFEDFAFF)),
-                contentAlignment = Alignment.Center
-            ) {
-                val initial = state.firstName.firstOrNull()?.uppercase() ?: ""
-                Text(
-                    text = initial.toString(), 
-                    fontSize = 48.sp, 
-                    color = Color(0xFF0075FF), 
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Contact Name
-            Text(
-                text = state.firstName + " " + state.lastName, 
-                style = MaterialTheme.typography.headlineSmall, 
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1D1D1F)
-            )
+    val scope = rememberCoroutineScope()
+    
+    var showActionMenu by remember { mutableStateOf(false) }
+    var showBottomSheet by remember { mutableStateOf(true) }
+    var showImageSourceBottomSheet by remember { mutableStateOf(false) }
+    
+    var photoUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // Görselden dominant renk çıkar
+    suspend fun extractDominantColor(imageUrl: String) {
+        try {
+            val loader = ImageLoader(context)
+            val request = ImageRequest.Builder(context)
+                .data(imageUrl)
+                .allowHardware(false) // Palette için gerekli
+                .build()
             
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Contact Details - Separate TextFields
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                IosTextField(
-                    value = state.firstName,
-                    onValueChange = { /* Read only */ },
-                    label = "First Name",
-                    enabled = false
-                )
-                
-                IosTextField(
-                    value = state.lastName,
-                    onValueChange = { /* Read only */ },
-                    label = "Last Name",
-                    enabled = false
-                )
-                
-                IosTextField(
-                    value = state.phoneNumber,
-                    onValueChange = { /* Read only */ },
-                    label = "Phone Number",
-                    enabled = false
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-
-    // Custom iOS-style Action Sheet
-    if (showActionSheet) {
-        Dialog(
-            onDismissRequest = { showActionSheet = false },
-            properties = DialogProperties(
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true
-            )
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column {
-                    // Edit Action
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { 
-                                showActionSheet = false
-                                showEdit = true 
-                            }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = null,
-                            tint = Color(0xFF0075FF),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Edit Contact",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color(0xFF0075FF),
-                            fontWeight = FontWeight.Medium
-                        )
+            val result = (loader.execute(request) as? SuccessResult)?.drawable
+            val bitmap = (result as? BitmapDrawable)?.bitmap
+            
+            bitmap?.let {
+                withContext(Dispatchers.Default) {
+                    val palette = Palette.from(it).generate()
+                    
+                    // En baskın rengi bul (vibrant, muted, dark vibrant vs.)
+                    val color = palette.vibrantSwatch?.rgb
+                        ?: palette.lightVibrantSwatch?.rgb
+                        ?: palette.darkVibrantSwatch?.rgb
+                        ?: palette.mutedSwatch?.rgb
+                        ?: palette.lightMutedSwatch?.rgb
+                        ?: palette.darkMutedSwatch?.rgb
+                    
+                    color?.let { colorInt ->
+                        dominantColor = Color(colorInt)
+                        Log.d("ProfileBottomSheet", "Dominant color extracted: $dominantColor")
                     }
-                    
-                    HorizontalDivider(
-                        color = Color(0xFFF0F0F0),
-                        thickness = 0.5.dp
-                    )
-                    
-                    // Delete Action
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { 
-                                showActionSheet = false
-                                onRequestDelete(state.id) 
-                            }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = null,
-                            tint = Color(0xFFFF3B30),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Delete Contact",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color(0xFFFF3B30),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
+        } catch (e: Exception) {
+            Log.e("ProfileBottomSheet", "Error extracting dominant color", e)
         }
     }
-
-    if (showEdit) {
-        com.example.phonebookapp.presentation.edit_contact.EditContactBottomSheet(
-            contactId = state.id,
-            onDismiss = { showEdit = false },
-            onSaved = { showEdit = false },
-            onRequestDelete = { id -> showEdit = false; onRequestDelete(id) }
+    
+    // Görsel URL değiştiğinde rengi güncelle
+    LaunchedEffect(state.imageUrl, state.editImageUrl) {
+        val imageUrl = if (state.isEditMode) state.editImageUrl else (state.imageUrl ?: "")
+        if (imageUrl.isNotEmpty()) {
+            extractDominantColor(imageUrl)
+        } else {
+            dominantColor = Color(0xFFF8BBD0) // Default pembe
+        }
+    }
+    
+    fun createImageUri(): Uri {
+        val timeStamp = System.currentTimeMillis()
+        val imageFileName = "JPEG_${timeStamp}_"
+        val storageDir = context.cacheDir
+        val imageFile = java.io.File.createTempFile(
+            imageFileName,
+            ".jpg",
+            storageDir
+        )
+        return FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            imageFile
         )
     }
-}
+    
+    LaunchedEffect(Unit) { 
+        if (showBottomSheet) {
+            sheetState.expand() 
+        }
+    }
 
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        Log.d("ProfileBottomSheet", "Gallery picker result: $uri")
+        uri?.let { selectedUri ->
+            try {
+                Log.d("ProfileBottomSheet", "Processing selected image: $selectedUri")
+                val inputStream = context.contentResolver.openInputStream(selectedUri)
+                inputStream?.let { stream ->
+                    val bitmap = BitmapFactory.decodeStream(stream)
+                    Log.d("ProfileBottomSheet", "Bitmap decoded successfully, size: ${bitmap.width}x${bitmap.height}")
+                    
+                    val outputStream = ByteArrayOutputStream()
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+                    val imageBytes = outputStream.toByteArray()
+                    Log.d("ProfileBottomSheet", "Image converted to bytes, size: ${imageBytes.size} bytes")
+                    
+                    Log.d("ProfileBottomSheet", "Starting image upload to API")
+                    viewModel.uploadProfileImage(imageBytes) {
+                        Log.d("ProfileBottomSheet", "Image upload successful, refreshing contacts list")
+                        onContactUpdated()
+                    }
+                } ?: run {
+                    Log.e("ProfileBottomSheet", "Failed to open input stream for URI: $selectedUri")
+                }
+            } catch (e: Exception) {
+                Log.e("ProfileBottomSheet", "Error processing selected image", e)
+            }
+        } ?: run {
+            Log.d("ProfileBottomSheet", "No image selected by user")
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        Log.d("ProfileBottomSheet", "Camera result: $success")
+        if (success) {
+            Log.d("ProfileBottomSheet", "Camera photo taken successfully")
+            photoUri?.let { uri ->
+                try {
+                    Log.d("ProfileBottomSheet", "Processing camera photo from URI: $uri")
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    inputStream?.let { stream ->
+                        val bitmap = BitmapFactory.decodeStream(stream)
+                        Log.d("ProfileBottomSheet", "Camera bitmap decoded: ${bitmap.width}x${bitmap.height}")
+                        
+                        val outputStream = ByteArrayOutputStream()
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+                        val imageBytes = outputStream.toByteArray()
+                        Log.d("ProfileBottomSheet", "Camera image converted to bytes: ${imageBytes.size} bytes")
+                        
+                        Log.d("ProfileBottomSheet", "Starting camera image upload to API")
+                        viewModel.uploadProfileImage(imageBytes) {
+                            Log.d("ProfileBottomSheet", "Image upload successful, refreshing contacts list")
+                            onContactUpdated()
+                        }
+                    } ?: run {
+                        Log.e("ProfileBottomSheet", "Failed to open input stream for camera URI: $uri")
+                    }
+                } catch (e: Exception) {
+                    Log.e("ProfileBottomSheet", "Error processing camera image", e)
+                }
+            } ?: run {
+                Log.e("ProfileBottomSheet", "Photo URI is null, cannot process camera image")
+            }
+        } else {
+            Log.d("ProfileBottomSheet", "Camera photo cancelled")
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = RequestPermission()
+    ) { isGranted: Boolean ->
+        Log.d("ProfileBottomSheet", "CAMERA permission granted: $isGranted")
+        if (isGranted) {
+            try {
+                photoUri = createImageUri()
+                Log.d("ProfileBottomSheet", "Created photo URI: $photoUri")
+                cameraLauncher.launch(photoUri)
+            } catch (e: Exception) {
+                Log.e("ProfileBottomSheet", "Error launching camera", e)
+            }
+        } else {
+            Log.e("ProfileBottomSheet", "CAMERA permission denied")
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Log.d("ProfileBottomSheet", "Permission granted, showing bottom sheet")
+            showImageSourceBottomSheet = true
+        } else {
+            Log.e("ProfileBottomSheet", "Permission denied")
+        }
+    }
+
+    fun selectImage() {
+        Log.d("ProfileBottomSheet", "selectImage() called")
+        
+        val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        
+        val hasPermission = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        Log.d("ProfileBottomSheet", "Permission check for $permission: $hasPermission")
+        
+        if (hasPermission) {
+            Log.d("ProfileBottomSheet", "Permission already granted, showing image source bottom sheet")
+            showImageSourceBottomSheet = true
+        } else {
+            Log.d("ProfileBottomSheet", "Requesting permission: $permission")
+            permissionLauncher.launch(permission)
+        }
+    }
+
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { 
+                showBottomSheet = false
+                onDismiss()
+            },
+            sheetState = sheetState,
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.95f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White)
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                    ) {
+                        if (state.isEditMode) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(
+                                    onClick = { 
+                                        viewModel.exitEditMode()
+                                        showBottomSheet = false
+                                        onDismiss()
+                                    }
+                                ) {
+                                    Text(
+                                        text = "Cancel",
+                                        color = Color(0xFF007AFF),
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.W400,
+                                        fontFamily = FontFamily.SansSerif,
+                                        letterSpacing = (-0.4).sp
+                                    )
+                                }
+                                
+                                Text(
+                                    text = "Edit Contact",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.W600,
+                                    fontFamily = FontFamily.SansSerif,
+                                    color = Color(0xFF1D1D1F),
+                                    letterSpacing = (-0.4).sp
+                                )
+                                
+                                TextButton(
+                                    onClick = { 
+                                        viewModel.saveContact {
+                                            showBottomSheet = false
+                                            onDismiss()
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        text = "Done",
+                                        color = Color(0xFF007AFF),
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.W600,
+                                        fontFamily = FontFamily.SansSerif,
+                                        letterSpacing = (-0.4).sp
+                                    )
+                                }
+                            }
+                        } else {
+                            IconButton(
+                                onClick = { showActionMenu = !showActionMenu },
+                                modifier = Modifier.align(Alignment.CenterEnd)
+                            ) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = "More",
+                                    tint = Color(0xFF1D1D1F)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Avatar with custom shadow - YENİ YAKLAŞIM
+                    Box(
+                        modifier = Modifier
+                            .size(160.dp)
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Custom shadow layer
+                        Canvas(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .offset(y = 4.dp)
+                        ) {
+                            drawIntoCanvas { canvas ->
+                                val paint = Paint().asFrameworkPaint()
+                                paint.color = dominantColor.copy(alpha = 0.4f).toArgb()
+                                paint.maskFilter = BlurMaskFilter(40f, BlurMaskFilter.Blur.NORMAL)
+                                
+                                canvas.nativeCanvas.drawCircle(
+                                    size.width / 2,
+                                    size.height / 2,
+                                    size.width / 2,
+                                    paint
+                                )
+                            }
+                        }
+                        
+                        // Avatar content
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(CircleShape)
+                                .background(dominantColor.copy(alpha = 0.15f))
+                                .clickable { 
+                                    if (state.isEditMode) {
+                                        selectImage()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val currentImageUrl = if (state.isEditMode) state.editImageUrl else (state.imageUrl ?: "")
+                            
+                            if (currentImageUrl.isNotEmpty()) {
+                                Image(
+                                    painter = rememberAsyncImagePainter(
+                                        ImageRequest.Builder(context)
+                                            .data(currentImageUrl)
+                                            .build()
+                                    ),
+                                    contentDescription = "Profile Image",
+                                    modifier = Modifier
+                                        .size(120.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                val currentFirstName = if (state.isEditMode) state.editFirstName else state.firstName
+                                val initial = currentFirstName.firstOrNull()?.uppercase() ?: ""
+                                Text(
+                                    text = initial.toString(),
+                                    fontSize = 48.sp,
+                                    color = Color(0xFF1D1D1F),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (state.isEditMode) {
+                        Text(
+                            text = "Change Photo",
+                            fontSize = 15.sp,
+                            color = Color(0xFF007AFF),
+                            fontWeight = FontWeight.W400,
+                            fontFamily = FontFamily.SansSerif,
+                            letterSpacing = (-0.2).sp,
+                            modifier = Modifier.clickable { selectImage() }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        if (state.isEditMode) {
+                            IosTextField(
+                                value = state.editFirstName,
+                                onValueChange = { viewModel.updateEditFirstName(it) },
+                                label = "First Name",
+                                enabled = true
+                            )
+
+                            IosTextField(
+                                value = state.editLastName,
+                                onValueChange = { viewModel.updateEditLastName(it) },
+                                label = "Last Name",
+                                enabled = true
+                            )
+
+                            IosPhoneTextField(
+                                value = state.editPhoneNumber,
+                                onValueChange = { viewModel.updateEditPhoneNumber(it) },
+                                label = "Phone Number"
+                            )
+                        } else {
+                            IosTextField(
+                                value = state.firstName,
+                                onValueChange = { /* Read only */ },
+                                label = "First Name",
+                                enabled = false
+                            )
+
+                            IosTextField(
+                                value = state.lastName,
+                                onValueChange = { /* Read only */ },
+                                label = "Last Name",
+                                enabled = false
+                            )
+
+                            IosTextField(
+                                value = state.phoneNumber,
+                                onValueChange = { /* Read only */ },
+                                label = "Phone Number",
+                                enabled = false
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
+                if (showActionMenu) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            ) {
+                                showActionMenu = false
+                            }
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = (-20).dp, y = 20.dp)
+                                .width(screenWidth * 0.5f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Column {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            showActionMenu = false
+                                            viewModel.enterEditMode()
+                                        }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Edit",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = Color(0xFF1D1D1F),
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null,
+                                        tint = Color(0xFF1D1D1F),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                
+                                HorizontalDivider(
+                                    color = Color(0xFFE5E5E5),
+                                    thickness = 0.8.dp,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            showActionMenu = false
+                                            showBottomSheet = false
+                                            onRequestDelete(state.id)
+                                        }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Delete",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = Color(0xFFFF3B30),
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFF3B30),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Image source bottom sheet
+    if (showImageSourceBottomSheet) {
+        val imageSheetState = rememberModalBottomSheetState()
+        
+        ModalBottomSheet(
+            onDismissRequest = { showImageSourceBottomSheet = false },
+            sheetState = imageSheetState,
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 12.dp, bottom = 8.dp)
+                        .width(40.dp)
+                        .height(4.dp)
+                        .background(
+                            Color.Gray.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(2.dp)
+                        )
+                )
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Button(
+                    onClick = {
+                        showImageSourceBottomSheet = false
+                        Log.d("ProfileBottomSheet", "Camera option selected")
+                        
+                        val cameraPermission = android.Manifest.permission.CAMERA
+                        val hasCameraPermission = ContextCompat.checkSelfPermission(
+                            context, 
+                            cameraPermission
+                        ) == PackageManager.PERMISSION_GRANTED
+                        
+                        Log.d("ProfileBottomSheet", "Camera permission check: $hasCameraPermission")
+                        
+                        if (hasCameraPermission) {
+                            try {
+                                photoUri = createImageUri()
+                                Log.d("ProfileBottomSheet", "Created photo URI: $photoUri")
+                                cameraLauncher.launch(photoUri)
+                            } catch (e: Exception) {
+                                Log.e("ProfileBottomSheet", "Error launching camera", e)
+                            }
+                        } else {
+                            Log.d("ProfileBottomSheet", "Requesting CAMERA permission")
+                            cameraPermissionLauncher.launch(cameraPermission)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E5E5)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text(
+                        text = "Camera",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Normal,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        showImageSourceBottomSheet = false
+                        Log.d("ProfileBottomSheet", "Gallery option selected")
+                        galleryLauncher.launch("image/*")
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E5E5)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text(
+                        text = "Gallery",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Normal,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                TextButton(
+                    onClick = { 
+                        showImageSourceBottomSheet = false
+                        Log.d("ProfileBottomSheet", "Image source bottom sheet cancelled")
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Cancel",
+                        color = Color(0xFF0075FF),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}

@@ -5,6 +5,7 @@ import com.example.phonebookapp.data.remote.dto.ContactDto
 import com.example.phonebookapp.data.remote.dto.CreateContactRequest
 import com.example.phonebookapp.data.remote.dto.UpdateContactRequest
 import com.example.phonebookapp.data.remote.dto.UserListData
+import com.example.phonebookapp.data.remote.dto.ImageUploadData
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
@@ -31,5 +32,5 @@ interface ContactsApi {
 
     @Multipart
     @POST("api/User/UploadImage")
-    suspend fun uploadImage(@Part image: MultipartBody.Part): Response<ApiResponse<String>>
+    suspend fun uploadImage(@Part image: MultipartBody.Part): Response<ApiResponse<ImageUploadData>>
 }

@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -18,6 +18,9 @@ fun ContactsList(
     onDeleteClick: (String) -> Unit,
     onEditClick: (String) -> Unit
 ) {
+    // Global state: Sadece bir contact swipe edilebilir
+    var activeSwipedContactId by remember { mutableStateOf<String?>(null) }
+    
     val groupedContacts = contacts
         .sortedBy { it.firstName.lowercase() }
         .groupBy { it.firstName.first().uppercaseChar() }
@@ -32,12 +35,13 @@ fun ContactsList(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp ,vertical=8.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxSize()
+                    ) {
                         Text(
                             text = initial.toString(),
                             style = MaterialTheme.typography.titleSmall,
@@ -54,7 +58,14 @@ fun ContactsList(
                                 contact = contact,
                                 onClick = { onContactClick(contact.id) },
                                 onEdit = { onEditClick(contact.id) },
-                                onDelete = { onDeleteClick(contact.id) }
+                                onDelete = { onDeleteClick(contact.id) },
+                                isActive = activeSwipedContactId == contact.id,
+                                onSwipeStart = { activeSwipedContactId = contact.id },
+                                onSwipeEnd = { 
+                                    if (activeSwipedContactId == contact.id) {
+                                        activeSwipedContactId = null
+                                    }
+                                }
                             )
                             if (index != contactsForLetter.lastIndex) {
                                 Divider(color = Color(0xFFF6F7FA))

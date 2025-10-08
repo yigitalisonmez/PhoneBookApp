@@ -7,7 +7,12 @@ data class ProfileState(
     val firstName: String = "",
     val lastName: String = "",
     val phoneNumber: String = "",
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val isEditMode: Boolean = false,
+    val editFirstName: String = "",
+    val editLastName: String = "",
+    val editPhoneNumber: String = "",
+    val editImageUrl: String = ""
 )
 
 

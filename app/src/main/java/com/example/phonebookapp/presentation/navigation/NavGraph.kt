@@ -12,7 +12,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.phonebookapp.presentation.add_contact.AddContactScreen
 import com.example.phonebookapp.presentation.contacts.ContactsScreen
-import com.example.phonebookapp.presentation.edit_contact.EditContactScreen
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -28,9 +27,6 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToProfile = { contactId ->
                     navController.navigate(Screen.Profile.createRoute(contactId))
                 },
-                onNavigateToEdit = { contactId ->
-                    navController.navigate(Screen.EditContact.createRoute(contactId))
-                }
             )
         }
 
@@ -42,12 +38,5 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        composable(Screen.EditContact.route) { backStackEntry ->
-            val contactId = backStackEntry.arguments?.getString("contactId") ?: return@composable
-            EditContactScreen(
-                contactId = contactId,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
     }
 }

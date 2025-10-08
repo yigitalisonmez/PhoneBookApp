@@ -22,3 +22,9 @@ data class UserListData(
     @SerializedName("users")
     val users: List<ContactDto>? = null
 )
+
+// Image upload için özel data yapısı
+data class ImageUploadData(
+    @SerializedName("imageUrl")
+    val imageUrl: String? = null
+)

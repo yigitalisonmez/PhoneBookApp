@@ -15,6 +15,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
+import android.util.Log
 
 class ContactsRepositoryImpl @Inject constructor(
     private val api: ContactsApi
@@ -151,24 +152,32 @@ class ContactsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun uploadImage(imageBytes: ByteArray): Resource<String> {
+        Log.d("ContactsRepository", "uploadImage called with ${imageBytes.size} bytes")
         return try {
             val requestBody = imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
             val part = MultipartBody.Part.createFormData("image", "contact_image.jpg", requestBody)
+            Log.d("ContactsRepository", "Created multipart body, making API call")
 
             val response = api.uploadImage(part)
+            Log.d("ContactsRepository", "API response received: ${response.code()}")
 
             if (response.isSuccessful) {
                 val apiResponse = response.body()
+                Log.d("ContactsRepository", "API response body: $apiResponse")
 
                 if (apiResponse?.success == true && apiResponse.data != null) {
-                    Resource.Success(apiResponse.data)
+                    Log.d("ContactsRepository", "Image upload successful, URL: ${apiResponse.data.imageUrl}")
+                    Resource.Success(apiResponse.data.imageUrl ?: "")
                 } else {
+                    Log.e("ContactsRepository", "Image upload failed: ${apiResponse?.messages}")
                     Resource.Error("Görsel yüklenemedi")
                 }
             } else {
+                Log.e("ContactsRepository", "HTTP error: ${response.code()} - ${response.message()}")
                 Resource.Error("HTTP ${response.code()}")
             }
         } catch (e: Exception) {
+            Log.e("ContactsRepository", "Exception during image upload", e)
             Resource.Error("Hata: ${e.localizedMessage}")
         }
     }

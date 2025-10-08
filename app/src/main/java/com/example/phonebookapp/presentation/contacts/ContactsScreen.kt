@@ -42,7 +42,6 @@ fun ContactsScreen(
 ) {
     val state = viewModel.state.value
     val lifecycleOwner = LocalLifecycleOwner.current
-    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     var showSuccess by remember { mutableStateOf(false) }
     var profileId by remember { mutableStateOf<String?>(null) }
 
@@ -172,45 +171,28 @@ fun ContactsScreen(
                 ContactsList(
                     contacts = state.contacts,
                     onContactClick = { id -> profileId = id },
-                    onDeleteClick = { id -> pendingDeleteId = id },
+                    onDeleteClick = { id -> viewModel.onEvent(ContactsEvent.DeleteContact(id)) },
                     onEditClick = { id -> profileId = id }
                 )
             }
         }
 
-        if (pendingDeleteId != null) {
-            AlertDialog(
-                onDismissRequest = { pendingDeleteId = null },
-                title = { Text("Emin misin?") },
-                text = { Text("Bu kişiyi silmek istediğine emin misin?") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        pendingDeleteId?.let { viewModel.onEvent(ContactsEvent.DeleteContact(it)) }
-                        pendingDeleteId = null
-                    }) {
-                        Text("Sil")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { pendingDeleteId = null }) {
-                        Text("İptal")
-                    }
-                }
-            )
-        }
+        // AlertDialog kaldırıldı - artık sadece ContactRowItem'daki DeleteContactBottomSheet kullanılıyor
 
-        // Edit sheet artık Profile içinden açılıyor; burada kaldırıldı
 
         profileId?.let { pid ->
             ProfileBottomSheet(
                 contactId = pid,
                 onDismiss = { profileId = null },
                 onEdit = { id ->
-                    // Edit artık ProfileBottomSheet içinde hallediliyor
                 },
                 onRequestDelete = { id ->
                     profileId = null
-                    pendingDeleteId = id
+                    viewModel.onEvent(ContactsEvent.DeleteContact(id))
+                },
+                onContactUpdated = {
+                    // Contact güncellendiğinde listeyi yenile
+                    viewModel.onEvent(ContactsEvent.Refresh)
                 }
             )
         }

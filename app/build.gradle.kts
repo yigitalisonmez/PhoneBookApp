@@ -92,6 +92,10 @@ dependencies {
     // Gson (JSON parsing)
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // Palette
+    implementation("androidx.palette:palette-ktx:1.0.0")
+
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
