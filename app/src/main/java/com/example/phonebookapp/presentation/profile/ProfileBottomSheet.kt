@@ -9,12 +9,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -26,7 +26,6 @@ import com.example.phonebookapp.presentation.ui.common.LocalScreenDimensions
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.rememberAsyncImagePainter
@@ -40,13 +39,10 @@ import android.util.Log
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
-import android.content.Intent
-import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import androidx.palette.graphics.Palette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import coil.ImageLoader
 import coil.request.SuccessResult
@@ -56,9 +52,10 @@ import androidx.compose.ui.graphics.nativeCanvas
 import android.graphics.BlurMaskFilter
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileBottomSheet(
     contactId: String,
@@ -77,11 +74,9 @@ fun ProfileBottomSheet(
 
     LaunchedEffect(contactId) { viewModel.initialize(contactId) }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     
     var showActionMenu by remember { mutableStateOf(false) }
-    var showBottomSheet by remember { mutableStateOf(true) }
     var showImageSourceBottomSheet by remember { mutableStateOf(false) }
     
     var photoUri by remember { mutableStateOf<Uri?>(null) }
@@ -145,12 +140,6 @@ fun ProfileBottomSheet(
             "${context.packageName}.fileprovider",
             imageFile
         )
-    }
-    
-    LaunchedEffect(Unit) { 
-        if (showBottomSheet) {
-            sheetState.expand() 
-        }
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -273,20 +262,27 @@ fun ProfileBottomSheet(
         }
     }
 
-    if (showBottomSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { 
-                showBottomSheet = false
-                onDismiss()
-            },
-            sheetState = sheetState,
-            containerColor = Color.White,
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.3f))
         ) {
-            Box(
+            // Main content card
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.95f)
+                    .align(Alignment.BottomCenter),
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -299,7 +295,8 @@ fun ProfileBottomSheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
+                            .height(56.dp)
+                            .padding(top = 8.dp)
                     ) {
                         if (state.isEditMode) {
                             Row(
@@ -310,7 +307,6 @@ fun ProfileBottomSheet(
                                 TextButton(
                                     onClick = { 
                                         viewModel.exitEditMode()
-                                        showBottomSheet = false
                                         onDismiss()
                                     }
                                 ) {
@@ -336,7 +332,6 @@ fun ProfileBottomSheet(
                                 TextButton(
                                     onClick = { 
                                         viewModel.saveContact {
-                                            showBottomSheet = false
                                             onDismiss()
                                         }
                                     }
@@ -352,22 +347,34 @@ fun ProfileBottomSheet(
                                 }
                             }
                         } else {
-                            IconButton(
-                                onClick = { showActionMenu = !showActionMenu },
-                                modifier = Modifier.align(Alignment.CenterEnd)
+                            // View mode - Back button on left, 3 dots on right
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Default.MoreVert,
-                                    contentDescription = "More",
-                                    tint = Color(0xFF1D1D1F)
-                                )
+                                IconButton(onClick = onDismiss) {
+                                    Icon(
+                                        Icons.Default.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = Color(0xFF007AFF)
+                                    )
+                                }
+                                
+                                IconButton(onClick = { showActionMenu = !showActionMenu }) {
+                                    Icon(
+                                        Icons.Default.MoreVert,
+                                        contentDescription = "More",
+                                        tint = Color(0xFF1D1D1F)
+                                    )
+                                }
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Avatar with custom shadow - YENİ YAKLAŞIM
+                    // Avatar with custom shadow
                     Box(
                         modifier = Modifier
                             .size(160.dp)
@@ -437,17 +444,16 @@ fun ProfileBottomSheet(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    if (state.isEditMode) {
-                        Text(
-                            text = "Change Photo",
-                            fontSize = 15.sp,
-                            color = Color(0xFF007AFF),
-                            fontWeight = FontWeight.W400,
-                            fontFamily = FontFamily.SansSerif,
-                            letterSpacing = (-0.2).sp,
-                            modifier = Modifier.clickable { selectImage() }
-                        )
-                    }
+                    // Change Photo - her zaman tıklanabilir
+                    Text(
+                        text = "Change Photo",
+                        fontSize = 18.sp,
+                        color = Color(0xFF007AFF),
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.SansSerif,
+                        letterSpacing = (-0.3).sp,
+                        modifier = Modifier.clickable { selectImage() }
+                    )
 
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -500,84 +506,78 @@ fun ProfileBottomSheet(
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
-                }
-
-                if (showActionMenu) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                            ) {
-                                showActionMenu = false
-                            }
-                    ) {
-                        Card(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = (-20).dp, y = 20.dp)
-                                .width(screenWidth * 0.5f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    
+                    // Action menu overlay
+                    if (showActionMenu) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            showActionMenu = false
-                                            viewModel.enterEditMode()
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "Edit",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = Color(0xFF1D1D1F),
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = null,
-                                        tint = Color(0xFF1D1D1F),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
+                            Card(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 0.dp, y = (-300).dp)
+                                    .width(screenWidth * 0.5f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                            ) {
+                                Column {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                showActionMenu = false
+                                                viewModel.enterEditMode()
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "Edit",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = Color(0xFF1D1D1F),
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = null,
+                                            tint = Color(0xFF1D1D1F),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                 
-                                HorizontalDivider(
-                                    color = Color(0xFFE5E5E5),
-                                    thickness = 0.8.dp,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
+                                    HorizontalDivider(
+                                        color = Color(0xFFE5E5E5),
+                                        thickness = 0.8.dp,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
                 
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            showActionMenu = false
-                                            showBottomSheet = false
-                                            onRequestDelete(state.id)
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "Delete",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = Color(0xFFFF3B30),
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = null,
-                                        tint = Color(0xFFFF3B30),
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                showActionMenu = false
+                                                onRequestDelete(state.id)
+                                                onDismiss()
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "Delete",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = Color(0xFFFF3B30),
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFF3B30),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -587,120 +587,124 @@ fun ProfileBottomSheet(
         }
     }
 
-    // Image source bottom sheet
+    // Image source bottom sheet - separate dialog
     if (showImageSourceBottomSheet) {
-        val imageSheetState = rememberModalBottomSheetState()
-        
-        ModalBottomSheet(
-            onDismissRequest = { showImageSourceBottomSheet = false },
-            sheetState = imageSheetState,
-            containerColor = Color.White,
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-            dragHandle = {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 12.dp, bottom = 8.dp)
-                        .width(40.dp)
-                        .height(4.dp)
-                        .background(
-                            Color.Gray.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(2.dp)
-                        )
-                )
+        ImageSourceBottomSheet(
+            onDismiss = { showImageSourceBottomSheet = false },
+            onCameraClick = {
+                showImageSourceBottomSheet = false
+                val cameraPermission = android.Manifest.permission.CAMERA
+                val hasCameraPermission = ContextCompat.checkSelfPermission(
+                    context, 
+                    cameraPermission
+                ) == PackageManager.PERMISSION_GRANTED
+                
+                if (hasCameraPermission) {
+                    try {
+                        photoUri = createImageUri()
+                        cameraLauncher.launch(photoUri)
+                    } catch (e: Exception) {
+                        Log.e("ProfileBottomSheet", "Error launching camera", e)
+                    }
+                } else {
+                    cameraPermissionLauncher.launch(cameraPermission)
+                }
+            },
+            onGalleryClick = {
+                showImageSourceBottomSheet = false
+                galleryLauncher.launch("image/*")
             }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImageSourceBottomSheet(
+    onDismiss: () -> Unit,
+    onCameraClick: () -> Unit,
+    onGalleryClick: () -> Unit
+) {
+    val imageSheetState = rememberModalBottomSheetState()
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = imageSheetState,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 8.dp)
+                    .width(40.dp)
+                    .height(4.dp)
+                    .background(
+                        Color.Gray.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(2.dp)
+                    )
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 32.dp)
         ) {
-            Column(
+            Button(
+                onClick = onCameraClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E5E5)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 32.dp)
+                    .height(56.dp)
             ) {
-                Button(
-                    onClick = {
-                        showImageSourceBottomSheet = false
-                        Log.d("ProfileBottomSheet", "Camera option selected")
-                        
-                        val cameraPermission = android.Manifest.permission.CAMERA
-                        val hasCameraPermission = ContextCompat.checkSelfPermission(
-                            context, 
-                            cameraPermission
-                        ) == PackageManager.PERMISSION_GRANTED
-                        
-                        Log.d("ProfileBottomSheet", "Camera permission check: $hasCameraPermission")
-                        
-                        if (hasCameraPermission) {
-                            try {
-                                photoUri = createImageUri()
-                                Log.d("ProfileBottomSheet", "Created photo URI: $photoUri")
-                                cameraLauncher.launch(photoUri)
-                            } catch (e: Exception) {
-                                Log.e("ProfileBottomSheet", "Error launching camera", e)
-                            }
-                        } else {
-                            Log.d("ProfileBottomSheet", "Requesting CAMERA permission")
-                            cameraPermissionLauncher.launch(cameraPermission)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E5E5)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Text(
-                        text = "Camera",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.Black,
-                        fontWeight = FontWeight.Normal,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = {
-                        showImageSourceBottomSheet = false
-                        Log.d("ProfileBottomSheet", "Gallery option selected")
-                        galleryLauncher.launch("image/*")
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E5E5)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Text(
-                        text = "Gallery",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.Black,
-                        fontWeight = FontWeight.Normal,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                TextButton(
-                    onClick = { 
-                        showImageSourceBottomSheet = false
-                        Log.d("ProfileBottomSheet", "Image source bottom sheet cancelled")
-                    },
+                Text(
+                    text = "Camera",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Black,
+                    fontWeight = FontWeight.Normal,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Cancel",
-                        color = Color(0xFF0075FF),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = onGalleryClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E5E5)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text(
+                    text = "Gallery",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Black,
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Cancel",
+                    color = Color(0xFF007AFF),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }

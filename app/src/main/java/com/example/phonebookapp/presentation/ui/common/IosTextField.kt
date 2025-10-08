@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.phonebookapp.ui.theme.IosPlaceholderGrey
 
 @Composable
 fun IosTextField(
@@ -26,7 +27,12 @@ fun IosTextField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        placeholder = { 
+            Text(
+                text = label,
+                color = IosPlaceholderGrey
+            ) 
+        },
         modifier = modifier
             .fillMaxWidth(),
         singleLine = singleLine,
@@ -37,7 +43,11 @@ fun IosTextField(
             focusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
             focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White
+            unfocusedContainerColor = Color.White,
+            disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+            disabledContainerColor = Color.White,
+            disabledTextColor = Color.Black,
+            disabledPlaceholderColor = IosPlaceholderGrey
         )
     )
 }

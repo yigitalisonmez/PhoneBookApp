@@ -1,4 +1,5 @@
 package com.example.phonebookapp.presentation.contacts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,7 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,6 +35,8 @@ import com.example.phonebookapp.presentation.profile.ProfileBottomSheet
 import com.example.phonebookapp.presentation.ui.components.ContactsList
 import com.example.phonebookapp.presentation.ui.components.ContactRowItem
 import com.example.phonebookapp.presentation.ui.success.SuccessScreen
+import com.example.phonebookapp.R
+import com.example.phonebookapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +67,7 @@ fun ContactsScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF6F6F6),
+        containerColor = IosBackground,
         topBar = {
             TopAppBar(
                 title = {
@@ -77,7 +83,7 @@ fun ContactsScreen(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF0075FF)),
+                                .background(IosBlue),
                             contentAlignment = Alignment.Center
                         ) {
                         Icon(
@@ -89,7 +95,7 @@ fun ContactsScreen(
                     }
                 }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF6F6F6))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = IosBackground)
             )
         }
     ) { padding ->
@@ -98,7 +104,7 @@ fun ContactsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFFF6F6F6))
+                .background(IosBackground)
         ) {
             // Search Bar
             OutlinedTextField(
@@ -107,18 +113,23 @@ fun ContactsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Search by name") },
+                placeholder = { 
+                    Text(
+                        "Search by name",
+                        color = IosGrey
+                    )
+                },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = IosGrey
                     )
                 },
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
                     focusedContainerColor = Color.White,
                     unfocusedContainerColor = Color.White
                 ),
@@ -210,60 +221,66 @@ fun ContactsScreen(
 
 @Composable
 fun EmptyContactsState(onCreateContact: () -> Unit) {
-    Column(
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    
+
+    val topBarHeight = with(density) { 152.dp.toPx() }
+    val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val offsetY = -(topBarHeight / 2) / density.density
+    
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .offset(y = offsetY.dp),  // Dinamik offset
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(140.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "👤",
-                fontSize = 70.sp
+            // Vector icon (SVG'den dönüştürülmüş) - Yukarıda
+            Image(
+                painter = painterResource(id = R.drawable.person),
+                contentDescription = "No Contacts",
+                modifier = Modifier.size(120.dp)
             )
-        }
 
-        Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            text = "No Contacts",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "Contacts you've added will appear here.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 32.dp)
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        Button(
-            onClick = onCreateContact,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 48.dp)
-                .height(50.dp),
-            shape = RoundedCornerShape(12.dp)
-        ) {
+            // "No Contacts" başlığı - Yukarıda
             Text(
-                "Create New Contact",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
+                text = "No Contacts",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IosDarkText
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Açıklama metni - TAM ORTADA (referans nokta)
+            Text(
+                text = "Contacts you've added will appear here.",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.Black,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 40.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // "Create New Contact" butonu - Altta
+            TextButton(
+                onClick = onCreateContact,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                Text(
+                    text = "Create New Contact",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IosBlue
+                )
+            }
         }
     }
 }
