@@ -5,4 +5,8 @@ sealed class ContactsEvent {
     data class SearchQuery(val query: String) : ContactsEvent()
     data class DeleteContact(val id: String) : ContactsEvent()
     object Refresh : ContactsEvent()
+    data class AddToSearchHistory(val query: String) : ContactsEvent()
+    data class RemoveFromSearchHistory(val query: String) : ContactsEvent()
+    object ClearSearchHistory : ContactsEvent()
+    object LoadSearchHistory : ContactsEvent()
 }

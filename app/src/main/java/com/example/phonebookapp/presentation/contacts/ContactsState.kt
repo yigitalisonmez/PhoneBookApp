@@ -6,5 +6,6 @@ data class ContactsState(
     val contacts: List<Contact> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val searchHistory: List<String> = emptyList()
 )

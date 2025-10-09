@@ -4,6 +4,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.phonebookapp.data.local.SearchHistoryManager
 import com.example.phonebookapp.domain.repository.ContactsRepository
 import com.example.phonebookapp.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +17,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
-    private val repository: ContactsRepository
+    private val repository: ContactsRepository,
+    private val searchHistoryManager: SearchHistoryManager
 ) : ViewModel() {
 
     private val _state = mutableStateOf(ContactsState())
@@ -26,6 +28,7 @@ class ContactsViewModel @Inject constructor(
 
     init {
         loadContacts()
+        loadSearchHistory()
     }
 
     fun onEvent(event: ContactsEvent) {
@@ -42,6 +45,18 @@ class ContactsViewModel @Inject constructor(
             }
             is ContactsEvent.Refresh -> {
                 loadContacts()
+            }
+            is ContactsEvent.AddToSearchHistory -> {
+                addToSearchHistory(event.query)
+            }
+            is ContactsEvent.RemoveFromSearchHistory -> {
+                removeFromSearchHistory(event.query)
+            }
+            is ContactsEvent.ClearSearchHistory -> {
+                clearSearchHistory()
+            }
+            is ContactsEvent.LoadSearchHistory -> {
+                loadSearchHistory()
             }
         }
     }
@@ -78,6 +93,9 @@ class ContactsViewModel @Inject constructor(
                 loadContacts()
                 return@launch
             }
+
+            // Search history'ye ekle
+            addToSearchHistory(query)
 
             repository.searchContacts(query).onEach { result ->
                 when (result) {
@@ -120,5 +138,25 @@ class ContactsViewModel @Inject constructor(
                 else -> {}
             }
         }
+    }
+
+    private fun loadSearchHistory() {
+        val history = searchHistoryManager.getSearchHistory()
+        _state.value = _state.value.copy(searchHistory = history)
+    }
+
+    private fun addToSearchHistory(query: String) {
+        searchHistoryManager.addSearchQuery(query)
+        loadSearchHistory()
+    }
+
+    private fun removeFromSearchHistory(query: String) {
+        searchHistoryManager.removeSearchQuery(query)
+        loadSearchHistory()
+    }
+
+    private fun clearSearchHistory() {
+        searchHistoryManager.clearSearchHistory()
+        loadSearchHistory()
     }
 }

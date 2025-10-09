@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.example.phonebookapp.ui.theme.IosBlue
+import com.example.phonebookapp.ui.theme.IosLightBlue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -217,7 +219,7 @@ fun ContactRowItem(
                 modifier = Modifier
                     .width(80.dp)
                     .fillMaxHeight()
-                    .background(Color(0xFF0075FF))
+                    .background(IosBlue)
                     .clickable { 
                         offsetX = 0f
                         onSwipeEnd()
@@ -287,7 +289,7 @@ fun ContactRowItem(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFEDFAFF)),
+                    .background(IosLightBlue),
                 contentAlignment = Alignment.Center
             ) {
                 if (!contact.imageUrl.isNullOrEmpty()) {
@@ -308,7 +310,7 @@ fun ContactRowItem(
                     // Profil fotoğrafı yoksa initial göster
                     Text(
                         text = contact.firstName.firstOrNull()?.uppercase()?.toString() ?: "",
-                        color = Color(0xFF0075FF),
+                        color = IosBlue,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.SemiBold
                     )

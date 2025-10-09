@@ -67,14 +67,9 @@ class AddContactViewModel @Inject constructor(
     }
 
     private fun saveContact() {
-        // Validasyon
+        // Validasyon - Last name zorunlu değil
         if (_state.value.firstName.isBlank()) {
             _state.value = _state.value.copy(error = "İsim boş olamaz")
-            return
-        }
-
-        if (_state.value.lastName.isBlank()) {
-            _state.value = _state.value.copy(error = "Soyisim boş olamaz")
             return
         }
 
@@ -89,7 +84,7 @@ class AddContactViewModel @Inject constructor(
 
             val result = repository.createContact(
                 firstName = _state.value.firstName.trim(),
-                lastName = _state.value.lastName.trim(),
+                lastName = _state.value.lastName.trim(), // Boş string olabilir
                 phoneNumber = _state.value.phoneNumber.trim(),
                 imageUrl = _state.value.profileImageUrl
             )
