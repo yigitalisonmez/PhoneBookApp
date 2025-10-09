@@ -23,13 +23,19 @@ class ProfileViewModel @Inject constructor(
 
     private var loadedId: String? = null
 
-    fun initialize(id: String) {
-        if (loadedId == id) return
+    fun initialize(id: String, initialEditMode: Boolean = false) {
+        if (loadedId == id) {
+            // Aynı contact, sadece edit mode'u ayarla
+            if (initialEditMode && !_state.value.isEditMode) {
+                enterEditMode()
+            }
+            return
+        }
         loadedId = id
-        load(id)
+        load(id, initialEditMode)
     }
 
-    private fun load(id: String) {
+    private fun load(id: String, initialEditMode: Boolean = false) {
         repository.getContactById(id).onEach { result ->
             when (result) {
                 is Resource.Success -> {
@@ -43,7 +49,7 @@ class ProfileViewModel @Inject constructor(
                             lastName = c.lastName,
                             phoneNumber = c.phoneNumber,
                             imageUrl = c.imageUrl,
-                            isEditMode = false,
+                            isEditMode = initialEditMode,
                             editFirstName = c.firstName,
                             editLastName = c.lastName,
                             editPhoneNumber = c.phoneNumber,

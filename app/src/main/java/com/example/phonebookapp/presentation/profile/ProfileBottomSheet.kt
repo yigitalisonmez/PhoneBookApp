@@ -63,6 +63,7 @@ fun ProfileBottomSheet(
     onEdit: (String) -> Unit,
     onRequestDelete: (String) -> Unit,
     onContactUpdated: () -> Unit = {},
+    initialEditMode: Boolean = false,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val state = viewModel.state.value
@@ -72,7 +73,9 @@ fun ProfileBottomSheet(
     // Dominant renk için state
     var dominantColor by remember { mutableStateOf(Color(0xFFF8BBD0)) } // Default pembe
 
-    LaunchedEffect(contactId) { viewModel.initialize(contactId) }
+    LaunchedEffect(contactId, initialEditMode) { 
+        viewModel.initialize(contactId, initialEditMode)
+    }
 
     val scope = rememberCoroutineScope()
     
@@ -332,6 +335,7 @@ fun ProfileBottomSheet(
                                 TextButton(
                                     onClick = { 
                                         viewModel.saveContact {
+                                            onEdit(contactId)
                                             onDismiss()
                                         }
                                     }
