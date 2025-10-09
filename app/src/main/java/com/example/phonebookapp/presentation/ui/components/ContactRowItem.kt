@@ -264,7 +264,7 @@ fun ContactRowItem(
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = {
-                            // Swipe başladığında bu contact'ı aktif yap
+                            // When swipe starts, make this contact active
                             onSwipeStart()
                         },
                         onDragEnd = {
@@ -293,7 +293,7 @@ fun ContactRowItem(
                 contentAlignment = Alignment.Center
             ) {
                 if (!contact.imageUrl.isNullOrEmpty()) {
-                    // Profil fotoğrafı varsa göster
+                    // If there is a profile image, show it
                     Image(
                         painter = rememberAsyncImagePainter(
                             ImageRequest.Builder(context)
@@ -307,7 +307,7 @@ fun ContactRowItem(
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    // Profil fotoğrafı yoksa initial göster
+                    // If there is no profile image, show the initial
                     Text(
                         text = contact.firstName.firstOrNull()?.uppercase()?.toString() ?: "",
                         color = IosBlue,

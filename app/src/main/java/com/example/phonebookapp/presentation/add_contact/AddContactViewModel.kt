@@ -30,7 +30,8 @@ class AddContactViewModel @Inject constructor(
                 _state.value = _state.value.copy(phoneNumber = event.value)
             }
             is AddContactEvent.ImageSelected -> {
-                uploadImage(event.imageBytes)
+                // Fotoğrafı geçici olarak sakla, upload etme (Done'a basınca upload edilecek)
+                _state.value = _state.value.copy(tempImageBytes = event.imageBytes)
             }
             is AddContactEvent.SaveContact -> {
                 saveContact()
@@ -78,20 +79,42 @@ class AddContactViewModel @Inject constructor(
             return
         }
 
-        // API'ye POST isteği
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
+            
+            // Eğer geçici fotoğraf varsa, önce onu upload et
+            val imageUrl = if (_state.value.tempImageBytes != null) {
+                _state.value = _state.value.copy(isUploadingImage = true)
+                
+                when (val uploadResult = repository.uploadImage(_state.value.tempImageBytes!!)) {
+                    is Resource.Success -> {
+                        _state.value = _state.value.copy(isUploadingImage = false)
+                        uploadResult.data // URL'i al
+                    }
+                    is Resource.Error -> {
+                        _state.value = _state.value.copy(
+                            error = "Fotoğraf yüklenemedi: ${uploadResult.message}",
+                            isLoading = false,
+                            isUploadingImage = false
+                        )
+                        return@launch
+                    }
+                    else -> null
+                }
+            } else {
+                _state.value.profileImageUrl // Zaten yüklenmiş URL varsa onu kullan
+            }
 
+            // Contact'ı API'ye POST et
             val result = repository.createContact(
                 firstName = _state.value.firstName.trim(),
-                lastName = _state.value.lastName.trim(), // Boş string olabilir
+                lastName = _state.value.lastName.trim(),
                 phoneNumber = _state.value.phoneNumber.trim(),
-                imageUrl = _state.value.profileImageUrl
+                imageUrl = imageUrl
             )
 
             when (result) {
                 is Resource.Success -> {
-                    // Başarılı! Ekranı kapat
                     _state.value = _state.value.copy(
                         isLoading = false,
                         isSuccess = true,

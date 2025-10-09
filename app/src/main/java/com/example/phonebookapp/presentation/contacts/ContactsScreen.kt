@@ -26,7 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.phonebookapp.domain.model.Contact
-import com.example.phonebookapp.presentation.profile.ProfileBottomSheet
+import com.example.phonebookapp.presentation.profile.ProfilePage
 import com.example.phonebookapp.presentation.ui.components.ContactsList
 import com.example.phonebookapp.presentation.ui.components.ContactRowItem
 import com.example.phonebookapp.presentation.ui.components.CustomSnackbar
@@ -54,14 +54,14 @@ fun ContactsScreen(
     val searchInteractionSource = remember { MutableInteractionSource() }
     val isSearchFocused by searchInteractionSource.collectIsFocusedAsState()
     
-    // Snackbar için
+    
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                // Ekran ön plana geldi, listeyi yenile
+                // Refresh the list when the screen is resumed
                 viewModel.onEvent(ContactsEvent.Refresh)
             }
         }
@@ -73,7 +73,7 @@ fun ContactsScreen(
         }
     }
 
-    // Delete işlemi sonrası snackbar göster
+    // Show Snackbar when contact is deleted
     var previousContactCount by remember { mutableStateOf(state.contacts.size) }
     
     LaunchedEffect(state.contacts.size) {
@@ -215,7 +215,7 @@ fun ContactsScreen(
             else if (state.contacts.isEmpty()) {
                 EmptyContactsState(onCreateContact = onNavigateToAddContact)
             }
-            // Search History (sadece search bar focus olduğunda ve query boş olduğunda)
+            // Search History 
             if (isSearchFocused && state.searchQuery.isBlank() && state.searchHistory.isNotEmpty()) {
                 SearchHistorySection(
                     searchHistory = state.searchHistory,
@@ -230,7 +230,7 @@ fun ContactsScreen(
                     }
                 )
             }
-            // Search Results (arama yapıldığında)
+            
             else if (state.searchQuery.isNotBlank() && state.contacts.isNotEmpty()) {
                 TopNameMatchesSection(
                     contacts = state.contacts,
@@ -238,7 +238,7 @@ fun ContactsScreen(
                     onContactClick = { id -> profileId = id }
                 )
             }
-            // Contact list (normal durum)
+            
             else {
                 ContactsList(
                     contacts = state.contacts,
@@ -255,18 +255,16 @@ fun ContactsScreen(
             }
         }
 
-        // AlertDialog kaldırıldı - artık sadece ContactRowItem'daki DeleteContactBottomSheet kullanılıyor
-
 
         profileId?.let { pid ->
-            ProfileBottomSheet(
+            ProfilePage(
                 contactId = pid,
                 onDismiss = { 
                     profileId = null
                     isEditMode = false
                 },
                 onEdit = { id ->
-                    // Edit işlemi sonrası snackbar göster
+                    
                     scope.launch {
                         snackbarHostState.showSnackbar(
                             message = "User is updated!",
