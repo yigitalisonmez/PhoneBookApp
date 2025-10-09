@@ -31,6 +31,7 @@ import com.example.phonebookapp.presentation.ui.components.ContactsList
 import com.example.phonebookapp.presentation.ui.components.ContactRowItem
 import com.example.phonebookapp.presentation.ui.components.CustomSnackbar
 import com.example.phonebookapp.presentation.ui.components.EmptyContactsState
+import com.example.phonebookapp.presentation.ui.components.NoResultsState
 import com.example.phonebookapp.presentation.ui.components.SearchHistorySection
 import com.example.phonebookapp.presentation.ui.components.TopNameMatchesSection
 import com.example.phonebookapp.presentation.ui.success.SuccessScreen
@@ -53,6 +54,7 @@ fun ContactsScreen(
     var isEditMode by remember { mutableStateOf(false) }
     val searchInteractionSource = remember { MutableInteractionSource() }
     val isSearchFocused by searchInteractionSource.collectIsFocusedAsState()
+    var previousSearchQuery by remember { mutableStateOf("") }
     
     
     val snackbarHostState = remember { SnackbarHostState() }
@@ -73,11 +75,20 @@ fun ContactsScreen(
         }
     }
 
-    // Show Snackbar when contact is deleted
+    // Show Snackbar when contact is deleted (only for real delete operations)
     var previousContactCount by remember { mutableStateOf(state.contacts.size) }
+    var isSearching by remember { mutableStateOf(false) }
     
-    LaunchedEffect(state.contacts.size) {
-        if (previousContactCount > state.contacts.size) {
+    LaunchedEffect(state.contacts.size, state.searchQuery) {
+        // Don't show snackbar if searching
+        if (state.searchQuery.isNotBlank()) {
+            isSearching = true
+        } else {
+            isSearching = false
+        }
+        
+        // Only show snackbar when not searching and contact count decreased
+        if (!isSearching && previousContactCount > state.contacts.size) {
             scope.launch {
                 snackbarHostState.showSnackbar(
                     message = "User is deleted!",
@@ -86,6 +97,15 @@ fun ContactsScreen(
             }
         }
         previousContactCount = state.contacts.size
+    }
+    
+    // Search history recording logic - only when exiting search bar
+    LaunchedEffect(isSearchFocused, state.searchQuery) {
+        // Record when exiting search bar and query exists
+        if (!isSearchFocused && state.searchQuery.isNotBlank() && state.searchQuery != previousSearchQuery) {
+            viewModel.onEvent(ContactsEvent.AddToSearchHistory(state.searchQuery))
+            previousSearchQuery = state.searchQuery
+        }
     }
 
     Scaffold(
@@ -139,7 +159,7 @@ fun ContactsScreen(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
-                    // Search bar'dan focus'u kaldır
+                    // Remove focus from search bar
                     focusManager.clearFocus()
                 }
         ) {
@@ -211,10 +231,7 @@ fun ContactsScreen(
                     }
                 }
             }
-            // Empty state
-            else if (state.contacts.isEmpty()) {
-                EmptyContactsState(onCreateContact = onNavigateToAddContact)
-            }
+            
             // Search History 
             if (isSearchFocused && state.searchQuery.isBlank() && state.searchHistory.isNotEmpty()) {
                 SearchHistorySection(
@@ -231,12 +248,23 @@ fun ContactsScreen(
                 )
             }
             
+            // Search results - results found
             else if (state.searchQuery.isNotBlank() && state.contacts.isNotEmpty()) {
                 TopNameMatchesSection(
                     contacts = state.contacts,
                     searchQuery = state.searchQuery,
                     onContactClick = { id -> profileId = id }
                 )
+            }
+            
+            // No Results - search query exists but no results
+            else if (state.searchQuery.isNotBlank() && state.contacts.isEmpty()) {
+                NoResultsState()
+            }
+            
+            // Empty state - no contacts and no search performed
+            else if (state.contacts.isEmpty()) {
+                EmptyContactsState(onCreateContact = onNavigateToAddContact)
             }
             
             else {
@@ -278,7 +306,7 @@ fun ContactsScreen(
                     viewModel.onEvent(ContactsEvent.DeleteContact(id))
                 },
                 onContactUpdated = {
-                    // Contact güncellendiğinde listeyi yenile
+                    // Refresh list when contact is updated
                     viewModel.onEvent(ContactsEvent.Refresh)
                 },
                 initialEditMode = isEditMode

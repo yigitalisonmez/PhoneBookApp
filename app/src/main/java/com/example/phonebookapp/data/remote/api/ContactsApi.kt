@@ -13,7 +13,7 @@ import retrofit2.http.*
 interface ContactsApi {
 
     @GET("api/User/GetAll")
-    suspend fun getAllContacts(): Response<ApiResponse<UserListData>>  // ✅ UserListData!
+    suspend fun getAllContacts(): Response<ApiResponse<UserListData>>
 
     @GET("api/User/{id}")
     suspend fun getContactById(@Path("id") id: String): Response<ApiResponse<ContactDto>>

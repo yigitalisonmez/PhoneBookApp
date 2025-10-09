@@ -3,9 +3,8 @@ package com.example.phonebookapp.presentation.profile.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.ui.res.painterResource
+import com.example.phonebookapp.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,7 +27,7 @@ fun ProfileActionMenu(
             Card(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = 0.dp, y = (-300).dp)
+                    .offset(x = (-16).dp, y = 0.dp)
                     .width(screenWidth * 0.5f),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -50,7 +49,7 @@ fun ProfileActionMenu(
                             fontWeight = FontWeight.Normal
                         )
                         Icon(
-                            Icons.Default.Edit,
+                            painter = painterResource(id = R.drawable.edit),
                             contentDescription = null,
                             tint = Color(0xFF1D1D1F),
                             modifier = Modifier.size(20.dp)
@@ -78,7 +77,7 @@ fun ProfileActionMenu(
                             fontWeight = FontWeight.Normal
                         )
                         Icon(
-                            Icons.Default.Delete,
+                            painter = painterResource(id = R.drawable.trash),
                             contentDescription = null,
                             tint = Color(0xFFFF3B30),
                             modifier = Modifier.size(20.dp)

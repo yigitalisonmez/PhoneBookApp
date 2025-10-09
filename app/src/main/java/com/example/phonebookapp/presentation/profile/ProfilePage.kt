@@ -8,6 +8,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.ui.res.painterResource
+import com.example.phonebookapp.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +31,10 @@ import com.example.phonebookapp.presentation.profile.components.*
 import com.example.phonebookapp.presentation.ui.common.IosPhoneTextField
 import com.example.phonebookapp.presentation.ui.common.IosTextField
 import com.example.phonebookapp.presentation.ui.common.LocalScreenDimensions
+import com.example.phonebookapp.presentation.ui.components.CustomSnackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
 import kotlinx.coroutines.launch
 
 @Composable
@@ -43,6 +53,7 @@ fun ProfilePage(
     
     var showActionMenu by remember { mutableStateOf(false) }
     var showImageSourceBottomSheet by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
     
     // Image picker state
     val imagePickerState = rememberImagePickerState { imageBytes ->
@@ -88,6 +99,25 @@ fun ProfilePage(
             showImageSourceBottomSheet = true
         } else {
             Log.e("ProfilePage", "Permission denied")
+        }
+    }
+    
+    // Contacts permission launcher
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            Log.d("ProfilePage", "Contacts permissions granted")
+            viewModel.saveToPhoneContact()
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "User is added to your phone!",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        } else {
+            Log.e("ProfilePage", "Contacts permissions denied")
         }
     }
 
@@ -146,6 +176,21 @@ fun ProfilePage(
                         },
                         onBackClick = onDismiss,
                         onMoreClick = { showActionMenu = !showActionMenu }
+                    )
+                    
+                    // Action menu - right below the 3 dot button
+                    ProfileActionMenu(
+                        visible = showActionMenu,
+                        onEditClick = {
+                            showActionMenu = false
+                            viewModel.enterEditMode()
+                        },
+                        onDeleteClick = {
+                            showActionMenu = false
+                            onRequestDelete(state.id)
+                            onDismiss()
+                        },
+                        screenWidth = screenWidth
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -225,23 +270,117 @@ fun ProfilePage(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
                     
-                    // Action menu
-                    ProfileActionMenu(
-                        visible = showActionMenu,
-                        onEditClick = {
-                            showActionMenu = false
-                            viewModel.enterEditMode()
-                        },
-                        onDeleteClick = {
-                            showActionMenu = false
-                            onRequestDelete(state.id)
-                            onDismiss()
-                        },
-                        screenWidth = screenWidth
-                    )
+                    // Save to Phone Contact Button
+                    if (!state.isEditMode) {
+                        OutlinedButton(
+                            onClick = { 
+                                if (!state.isSavedToPhone) {
+                                    // Check contacts permissions
+                                    val hasReadPermission = ContextCompat.checkSelfPermission(
+                                        imagePickerState.context,
+                                        android.Manifest.permission.READ_CONTACTS
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    
+                                    val hasWritePermission = ContextCompat.checkSelfPermission(
+                                        imagePickerState.context,
+                                        android.Manifest.permission.WRITE_CONTACTS
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    
+                                    if (hasReadPermission && hasWritePermission) {
+                                        viewModel.saveToPhoneContact()
+                                        onContactUpdated() // ContactsScreen'i yenile
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                message = "User is added to your phone!",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                        }
+                                    } else {
+                                        contactsPermissionLauncher.launch(
+                                            arrayOf(
+                                                android.Manifest.permission.READ_CONTACTS,
+                                                android.Manifest.permission.WRITE_CONTACTS
+                                            )
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (state.isSavedToPhone) Color(0xFFF0F0F0) else Color.White,
+                                contentColor = if (state.isSavedToPhone) Color(0xFF8E8E93) else Color.Black
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp, 
+                                if (state.isSavedToPhone) Color(0xFF8E8E93) else Color(0xFF000000)
+                            ),
+                            enabled = !state.isSavedToPhone
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.bookmark),
+                                contentDescription = "Save",
+                                tint = if (state.isSavedToPhone) Color(0xFF8E8E93) else Color.Black,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Save to My Phone Contact",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = if (state.isSavedToPhone) Color(0xFF8E8E93) else Color.Black
+                            )
+                        }
+                        
+                        // Info row - show if saved
+                        if (state.isSavedToPhone) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.White)
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Info",
+                                    tint = Color(0xFF6C757D),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "This contact is already saved to your phone.",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF6C757D),
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
                 }
+            }
+        }
+        
+        // Snackbar Host - altta
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 16.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            SnackbarHost(
+                hostState = snackbarHostState
+            ) { data ->
+                CustomSnackbar(message = data.visuals.message)
             }
         }
     }

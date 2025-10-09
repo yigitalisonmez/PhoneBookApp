@@ -1,5 +1,6 @@
 package com.example.phonebookapp.presentation.contacts
 
+import android.content.Context
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -8,6 +9,7 @@ import com.example.phonebookapp.data.local.SearchHistoryManager
 import com.example.phonebookapp.domain.repository.ContactsRepository
 import com.example.phonebookapp.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
@@ -18,13 +20,18 @@ import javax.inject.Inject
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
     private val repository: ContactsRepository,
-    private val searchHistoryManager: SearchHistoryManager
+    private val searchHistoryManager: SearchHistoryManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _state = mutableStateOf(ContactsState())
     val state: State<ContactsState> = _state
 
     private var searchJob: Job? = null
+    
+    private val sharedPreferences by lazy {
+        context.getSharedPreferences("phone_contacts", Context.MODE_PRIVATE)
+    }
 
     init {
         loadContacts()
@@ -65,8 +72,14 @@ class ContactsViewModel @Inject constructor(
         repository.getAllContacts().onEach { result ->
             when (result) {
                 is Resource.Success -> {
+                    val contacts = result.data ?: emptyList()
+                    // Update isInDeviceContacts status for each contact
+                    val updatedContacts = contacts.map { contact ->
+                        val isSaved = sharedPreferences.getBoolean("saved_${contact.id}", false)
+                        contact.copy(isInDeviceContacts = isSaved)
+                    }
                     _state.value = _state.value.copy(
-                        contacts = result.data ?: emptyList(),
+                        contacts = updatedContacts,
                         isLoading = false,
                         error = null
                     )
@@ -100,8 +113,14 @@ class ContactsViewModel @Inject constructor(
             repository.searchContacts(query).onEach { result ->
                 when (result) {
                     is Resource.Success -> {
+                        val contacts = result.data ?: emptyList()
+                        // Update isInDeviceContacts status for each contact
+                        val updatedContacts = contacts.map { contact ->
+                            val isSaved = sharedPreferences.getBoolean("saved_${contact.id}", false)
+                            contact.copy(isInDeviceContacts = isSaved)
+                        }
                         _state.value = _state.value.copy(
-                            contacts = result.data ?: emptyList(),
+                            contacts = updatedContacts,
                             isLoading = false,
                             error = null
                         )
@@ -126,6 +145,9 @@ class ContactsViewModel @Inject constructor(
 
             when (val result = repository.deleteContact(id)) {
                 is Resource.Success -> {
+                    // Remove from SharedPreferences (phone contacts)
+                    sharedPreferences.edit().remove("saved_$id").apply()
+                    
                     // Silme başarılı, listeyi yenile
                     loadContacts()
                 }

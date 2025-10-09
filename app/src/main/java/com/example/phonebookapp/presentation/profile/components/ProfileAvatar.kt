@@ -9,6 +9,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,13 +50,13 @@ fun ProfileAvatar(
     var hasProfileImage by remember { mutableStateOf(false) }
     var isColorExtracted by remember { mutableStateOf(false) }
 
-    // Görselden dominant renk çıkar
+    
     suspend fun extractDominantColor(url: String) {
         try {
             val loader = ImageLoader(context)
             val request = ImageRequest.Builder(context)
                 .data(url)
-                .allowHardware(false) // Palette için gerekli
+                .allowHardware(false)
                 .build()
             
             val result = (loader.execute(request) as? SuccessResult)?.drawable
@@ -63,7 +66,7 @@ fun ProfileAvatar(
                 withContext(Dispatchers.Default) {
                     val palette = Palette.from(it).generate()
                     
-                    // En baskın rengi bul (vibrant, muted, dark vibrant vs.)
+                    // Find the most dominant color (vibrant, muted, dark vibrant etc.)
                     val color = palette.vibrantSwatch?.rgb
                         ?: palette.lightVibrantSwatch?.rgb
                         ?: palette.darkVibrantSwatch?.rgb
@@ -81,11 +84,11 @@ fun ProfileAvatar(
             }
         } catch (e: Exception) {
             Log.e("ProfileAvatar", "Error extracting dominant color", e)
-            isColorExtracted = true // Hata durumunda da true yap ki gölge gösterilsin
+            isColorExtracted = true // Set to true even in error case so shadow is shown
         }
     }
     
-    // Görsel URL değiştiğinde rengi güncelle
+    // Update color when image URL changes
     LaunchedEffect(imageUrl) {
         isColorExtracted = false // Reset
         if (!imageUrl.isNullOrEmpty()) {
@@ -103,7 +106,7 @@ fun ProfileAvatar(
             .padding(20.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Custom shadow layer - sadece renk extract edildikten sonra göster
+        // Custom shadow layer - en arkada
         if (isColorExtracted) {
             Canvas(
                 modifier = Modifier
@@ -130,7 +133,7 @@ fun ProfileAvatar(
             }
         }
         
-        // Avatar content
+        // Avatar content - in front
         Box(
             modifier = Modifier
                 .size(120.dp)

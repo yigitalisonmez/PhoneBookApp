@@ -11,8 +11,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.ui.res.painterResource
+import com.example.phonebookapp.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -112,7 +113,7 @@ fun DeleteContactBottomSheet(
                     )
                 }
 
-                // Yes Button (sağda)
+                // Yes Button (right side)
                 Button(
                     onClick = onConfirm,
                     colors = ButtonDefaults.buttonColors(
@@ -148,7 +149,7 @@ fun ContactRowItem(
 ) {
     var offsetX by remember { mutableFloatStateOf(0f) }
     
-    // Eğer bu contact aktif değilse, offsetX'i 0 yap
+    // If this contact is not active, set offsetX to 0
     LaunchedEffect(isActive) {
         if (!isActive && offsetX != 0f) {
             offsetX = 0f
@@ -162,8 +163,8 @@ fun ContactRowItem(
     val swipeThreshold = with(density) { 100.dp.toPx() }
     val maxSwipeDistance = with(density) { 160.dp.toPx() }
     
-    // Artık screenDimensions.width ve screenDimensions.height kullanabilirsin!
-    // Örnek: val screenWidth = screenDimensions.width
+    // Now you can use screenDimensions.width and screenDimensions.height!
+    // Example: val screenWidth = screenDimensions.width
     
     val animatedOffsetX by animateFloatAsState(
         targetValue = offsetX,
@@ -219,7 +220,7 @@ fun ContactRowItem(
                 modifier = Modifier
                     .width(80.dp)
                     .fillMaxHeight()
-                    .background(IosBlue)
+                    .background(Color(0xFF1EA7FF))
                     .clickable { 
                         offsetX = 0f
                         onSwipeEnd()
@@ -228,14 +229,14 @@ fun ContactRowItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Edit,
+                    painter = painterResource(id = R.drawable.edit),
                     contentDescription = "Edit",
                     tint = Color.White,
                     modifier = Modifier.size(28.dp)
                 )
             }
             
-            // Delete action (kırmızı - sağda)
+            // Delete action (red - right side)
             Box(
                 modifier = Modifier
                     .width(80.dp)
@@ -247,7 +248,7 @@ fun ContactRowItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Delete,
+                    painter = painterResource(id = R.drawable.trash),
                     contentDescription = "Delete",
                     tint = Color.White,
                     modifier = Modifier.size(28.dp)
@@ -286,34 +287,59 @@ fun ContactRowItem(
             val context = LocalContext.current
             
             Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(IosLightBlue),
+                modifier = Modifier.size(48.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (!contact.imageUrl.isNullOrEmpty()) {
-                    // If there is a profile image, show it
-                    Image(
-                        painter = rememberAsyncImagePainter(
-                            ImageRequest.Builder(context)
-                                .data(contact.imageUrl)
-                                .build()
-                        ),
-                        contentDescription = "Profile Image",
+                // Main profile picture
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(IosLightBlue),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!contact.imageUrl.isNullOrEmpty()) {
+                        // If there is a profile image, show it
+                        Image(
+                            painter = rememberAsyncImagePainter(
+                                ImageRequest.Builder(context)
+                                    .data(contact.imageUrl)
+                                    .build()
+                            ),
+                            contentDescription = "Profile Image",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        // If there is no profile image, show the initial
+                        Text(
+                            text = contact.firstName.firstOrNull()?.uppercase()?.toString() ?: "",
+                            color = IosBlue,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                
+                
+                if (contact.isInDeviceContacts) {
+                    Box(
                         modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    // If there is no profile image, show the initial
-                    Text(
-                        text = contact.firstName.firstOrNull()?.uppercase()?.toString() ?: "",
-                        color = IosBlue,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                            .size(20.dp)
+                            .align(Alignment.BottomEnd)
+                            .clip(CircleShape)
+                            .background(IosBlue),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "Saved to Phone",
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
             }
 
